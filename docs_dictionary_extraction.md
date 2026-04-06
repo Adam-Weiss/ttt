@@ -49,7 +49,7 @@ The `-tab` mode expects each line to be:
 
 Where:
 
-- Column 1 = the lookup term (EWTS/Wylie token sequence)
+- Column 1 = the lookup term (recommended: **EWTS/Wylie** token sequence)
 - Column 2 = the full definition text
 - Separator = a **single tab character**, not spaces
 - One entry per line
@@ -65,7 +65,43 @@ chos sku	dharmakāya
 Notes:
 
 - The generator reads `<basename>.txt`, so you usually copy/rename `mydict.tsv` → `mydict.txt`.
-- Use UTF-8 when possible.
+- Use UTF-8 for portable builds.
+
+## 1.1) EWTS vs Tibetan Unicode in TSV term column (important)
+
+Short answer:
+
+- **Recommended and safest for standalone dictionary builds: use EWTS in column 1.**
+- Tibetan Unicode can appear in your source files, but there are important caveats.
+
+What was verified in this repo/JAR:
+
+- `BinaryFileGenerator` parses dictionary source lines directly and does **not** convert Unicode terms to EWTS during build.
+- The class-level docs for `BinaryFileGenerator` explicitly describe EWTS assumptions for dictionary input.
+- Web/remote scanner paths include explicit Unicode→Wylie conversion before lookup; dictionary build input does not.
+
+Practical implication:
+
+- If you build a dictionary with EWTS terms, lookup should also be EWTS-normalized (this is the intended path).
+- If you build a dictionary with Tibetan Unicode terms, matching behavior depends on exact text equivalence and input path; it is not the documented/guaranteed build format.
+
+For your examples:
+
+```text
+བཀྲ་ཤིས	auspiciousness; good fortune
+བདེ་ལེགས	well-being; goodness
+ཆོས་སྐུ	dharmakāya
+```
+
+vs
+
+```text
+bkra shis	auspiciousness; good fortune
+bde legs	well-being; goodness
+chos sku	dharmakāya
+```
+
+Use the **EWTS version** for column 1 when generating `.wrd/.def` with `BinaryFileGenerator -tab`.
 
 ## 2) Build a standalone dictionary from TSV
 
@@ -79,6 +115,8 @@ If your source file is `mydict.tsv`, do:
 Copy-Item .\mydict.tsv .\mydict.txt
 java -cp "C:\Users\user name\Desktop\tibb\DictionarySearchStandalone.jar" org.thdl.tib.scanner.BinaryFileGenerator -tab mydict
 ```
+
+If your TSV contains Tibetan Unicode and you want a robust standalone dictionary, first convert the term column to EWTS and then run the same command.
 
 This generates:
 
@@ -295,3 +333,19 @@ python extract_terms.py > all_terms.tsv
 - There is no separate dedicated numeric ID field in `.wrd`; IDs are stored as definition text associated with dictionary 0 (`TID`) when present.
 - If a dictionary build does not include a "Term ids" source, `term_id` can be blank.
 - Definitions can map to multiple dictionary tags (the binary format supports grouped sources per definition).
+
+## 6) Verification notes for `DictionarySearchStandalone.jar` in this repo
+
+The following was verified against `dist/lib-vanilla/DictionarySearchStandalone.jar`:
+
+- JAR exists in the repo and contains `org/thdl/tib/scanner/BinaryFileGenerator.class`.
+- Main-Class in manifest is `org.thdl.tib.scanner.SwingWindowScannerFilter`.
+- `BinaryFileGenerator` usage supports `-tab` and reads `basename.txt`.
+
+Quick verification commands:
+
+```bash
+unzip -l dist/lib-vanilla/DictionarySearchStandalone.jar | grep BinaryFileGenerator
+unzip -p dist/lib-vanilla/DictionarySearchStandalone.jar META-INF/MANIFEST.MF
+java -cp dist/lib-vanilla/DictionarySearchStandalone.jar org.thdl.tib.scanner.BinaryFileGenerator
+```
