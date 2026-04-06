@@ -8,18 +8,76 @@ This repo’s standalone dictionary format is a 3-file set:
 
 The generator is `org.thdl.tib.scanner.BinaryFileGenerator`.
 
-## 1) Build a standalone dictionary from TSV
+## 0) Windows 11 prerequisites (Java + tools)
+
+The standalone JAR is a Java program, so first verify Java is available on Windows 11.
+
+### Required dependency
+
+- Java Runtime (JRE) or JDK 8+ on `PATH` (JDK is fine too)
+
+### Optional helper tools
+
+- PowerShell 5+ (already present on Win11)
+- Python 3.9+ (only needed for the full text export script below)
+
+### Verify dependencies on Windows 11
+
+Open **PowerShell** and run:
+
+```powershell
+java -version
+javac -version
+python --version
+```
+
+Expected:
+
+- `java -version` returns a valid Java version (not “command not found”)
+- `javac -version` may fail if you only installed JRE (this is OK for running the JAR)
+- `python --version` is only needed for the Python extraction script
+
+If `java` is missing, install a JRE/JDK and reopen PowerShell.
+
+## 1) Expected TSV structure
+
+The `-tab` mode expects each line to be:
+
+```text
+<term-in-EWTS><TAB><definition-text>
+```
+
+Where:
+
+- Column 1 = the lookup term (EWTS/Wylie token sequence)
+- Column 2 = the full definition text
+- Separator = a **single tab character**, not spaces
+- One entry per line
+
+Minimal example (`mydict.tsv`):
+
+```text
+bkra shis	auspiciousness; good fortune
+bde legs	well-being; goodness
+chos sku	dharmakāya
+```
+
+Notes:
+
+- The generator reads `<basename>.txt`, so you usually copy/rename `mydict.tsv` → `mydict.txt`.
+- Use UTF-8 when possible.
+
+## 2) Build a standalone dictionary from TSV
 
 `BinaryFileGenerator` reads `*.txt` inputs by basename and supports tab-separated input via `-tab`.
 
-### Single TSV dictionary
+### Single TSV dictionary (Windows path requested)
 
 If your source file is `mydict.tsv`, do:
 
-```bash
-cp mydict.tsv mydict.txt
-java -cp dist/lib-vanilla/DictionarySearchStandalone.jar \
-  org.thdl.tib.scanner.BinaryFileGenerator -tab mydict
+```powershell
+Copy-Item .\mydict.tsv .\mydict.txt
+java -cp "C:\Users\user name\Desktop\tibb\DictionarySearchStandalone.jar" org.thdl.tib.scanner.BinaryFileGenerator -tab mydict
 ```
 
 This generates:
@@ -33,23 +91,36 @@ If you want UI dictionary labels (used by selectors), create `mydict.dic` manual
 My Dictionary,mydict
 ```
 
-### Combine multiple sources into one standalone dictionary
+### Combine multiple sources into one standalone dictionary (Windows)
 
 You can mix separators in one build; first arg is destination basename:
 
-```bash
-java -cp dist/lib-vanilla/DictionarySearchStandalone.jar \
-  org.thdl.tib.scanner.BinaryFileGenerator combined \
-  -tab dict_a \
-  -tab dict_b \
-  dict_dash
+```powershell
+java -cp "C:\Users\user name\Desktop\tibb\DictionarySearchStandalone.jar" org.thdl.tib.scanner.BinaryFileGenerator combined -tab dict_a -tab dict_b dict_dash
 ```
 
 This writes `combined.wrd` + `combined.def`.
 
 If you use the GUI "CreateDatabaseWizard", it also writes `.dic` (dictionary descriptions/abbreviations).
 
-## 2) Access all internal dictionaries in text form
+### Exact checklist for generating a brand-new dictionary
+
+1. Prepare `mydict.tsv` as `<term><TAB><definition>`.
+2. Copy/rename to `mydict.txt` in your working folder.
+3. Run:
+   ```powershell
+   java -cp "C:\Users\user name\Desktop\tibb\DictionarySearchStandalone.jar" org.thdl.tib.scanner.BinaryFileGenerator -tab mydict
+   ```
+4. Confirm outputs exist:
+   - `mydict.wrd`
+   - `mydict.def`
+5. (Recommended) create `mydict.dic` for labels/tags:
+   ```text
+   My Dictionary,mydict
+   ```
+6. In the standalone app, choose local dictionary and open the generated dictionary set.
+
+## 3) Access all internal dictionaries in text form
 
 `.dic` is already plain text and lists dictionary descriptions + tags (abbreviations), one per line:
 
@@ -64,11 +135,20 @@ Example from shipped data:
 
 So, to list internal dictionary labels:
 
-```bash
-cat dist/data/thl.dic
+```powershell
+Get-Content .\dist\data\thl.dic
 ```
 
-## 3) Extract all terms and term IDs
+### Retrieve built-in dictionary data as text (quick methods)
+
+If you want text output from built-in data (`dist/data/thl.*`):
+
+1. **Dictionary names/tags only** (from `.dic`):  
+   `Get-Content .\dist\data\thl.dic`
+2. **Sample raw definition strings** (from `.def`): use a small script (Python example in section 4).
+3. **Full term + term_id + definitions export**: use the extraction script in section 4 with `base = Path("dist/data/thl")`.
+
+## 4) Extract all terms and term IDs
 
 Yes, this is possible.
 
@@ -204,13 +284,13 @@ for term, tid, defs in rows:
     print(f"{term}\t{tid}\t{defs}")
 ```
 
-Run:
+Run (Windows PowerShell):
 
-```bash
+```powershell
 python extract_terms.py > all_terms.tsv
 ```
 
-## 4) Notes on IDs and limitations
+## 5) Notes on IDs and limitations
 
 - There is no separate dedicated numeric ID field in `.wrd`; IDs are stored as definition text associated with dictionary 0 (`TID`) when present.
 - If a dictionary build does not include a "Term ids" source, `term_id` can be blank.
